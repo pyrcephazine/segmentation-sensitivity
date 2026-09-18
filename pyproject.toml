@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "segmentation-sensitivity"
+version = "0.1.0"
+description = "Circular-average 3D–1D coupled diffusion and network geometry tools"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "networkx>=3"]
+
+[tool.setuptools]
+license-files = ["THIRD_PARTY_NOTICES.md"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["segmentation_sensitivity*"]

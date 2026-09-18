@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "checks": [
+    "Scientific solver, mesh, and partitioner byte-identical",
+    "All 42 experiment cases, generated graphs, and break statistics match the pre-move code",
+    "Core has no experiment imports",
+    "All Python sources compile and Slurm module targets resolve",
+    "Report links and output locations verified",
+    "Existing PNG figures and VTU solutions byte-identical",
+    "Wheel built and installed separately; imports and bundled license verified with external environment dependencies"
+  ],
+  "case_count": 42
+}
