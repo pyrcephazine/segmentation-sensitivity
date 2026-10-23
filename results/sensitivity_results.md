@@ -4,7 +4,8 @@ Computed **1,270 cases** using DOLFINx 0.10.0 and networks_fenicsx. These are il
 
 ## Main findings
 
-- A 1 mm gap halfway along the Y tumor branch leaves essentially zero delivery in the vessel-only and terminal-exchange models, 0.71% under wall exchange, 0.63% under spread exchange, and 77.1% under equal pressures.
+- At the default tissue spacing, a 1 mm gap halfway along the Y tumor branch leaves essentially zero delivery in the vessel-only and terminal-exchange models, 0.71% under wall exchange, 0.63% under spread exchange, and 77.1% under equal pressures.
+- The equal-pressure prediction after that gap ranges from 47.1% to 110.1% across tissue meshes. Its large residual delivery is therefore strongly dependent on discretization, rather than evidence of robust vessel repair.
 - Cutting the healthy branch instead raises terminal-model tumor flow by 22.2%, showing that off-target vessels can control the target flow.
 - Restoring the missing interval with its original radius recovers the matched intact solve. The radius sweeps show how quickly this changes when the bridge is too narrow.
 
@@ -42,7 +43,7 @@ The fixed-permeability lumen model is matched to Poiseuille in the intact vessel
 | Fixed permeability | 7.328 | 5.909 |
 | Wall exchange | 3.761 | 2.553 |
 | Terminal exchange | 4.664 | 3.407 |
-| Equal pressures | 2.578 | 1.529 |
+| Equal mean pressures | 2.578 | 1.529 |
 | Spread exchange | 3.813 | 2.595 |
 | Line source | 3.762 | 2.555 |
 
@@ -60,7 +61,7 @@ Gaps are physical intervals removed before vessel meshing. Position is measured 
 | Fixed permeability | 0.0% | 0.0% | 0.0% | 107.4% |
 | Wall exchange | 1.9% | 2.4% | 0.7% | 119.0% |
 | Terminal exchange | 0.0% | 0.0% | 0.0% | 122.2% |
-| Equal pressures | 53.0% | 60.3% | 77.1% | 107.7% |
+| Equal mean pressures | 53.0% | 60.3% | 77.1% | 107.7% |
 | Spread exchange | 1.6% | 2.1% | 0.6% | 119.2% |
 | Line source | 1.9% | 2.4% | 0.7% | 119.0% |
 
@@ -78,6 +79,8 @@ Tissue-mediated flow after a gap is a different route from an intact arterial lu
 
 Radius errors affect a 3 mm interval. In the coupled models the changed radius also changes wall circumference and pressure-sampling locations. A bridge fills a 2 mm missing interval using an estimated radius. It restores the corresponding exchange terms as well as axial flow; the multiplier and line-source models retain their own exchange laws on the restored interval.
 
+For a concrete comparison, halving radius in the Y tumor branch leaves 46.1% of intact tumor flow under Poiseuille resistance and 81.0% under fixed lumen permeability. Both laws were matched on the intact vessel, so this difference isolates radius dependence.
+
 [Radius errors, straight vessel](figures/radius_change_line.pdf) · [Radius errors, Y-shaped vessel](figures/radius_change_y.pdf)
 
 [Bridge radius, straight vessel](figures/bridge_radius_line.pdf) · [Bridge radius, Y-shaped vessel](figures/bridge_radius_y.pdf)
@@ -94,17 +97,23 @@ Tissue and vessel resolution are varied separately. Physical gap boundaries, rad
 |---|---:|---:|
 | Wall exchange | 2.576 | 2.552 |
 | Terminal exchange | 3.471 | 3.375 |
-| Equal pressures | 1.450 | 1.590 |
+| Equal mean pressures | 1.450 | 1.590 |
 | Spread exchange | 2.627 | 2.576 |
 | Line source | 2.577 | 2.560 |
 
 The conservative volume-exchange calculations use shared face fluxes and cell pressures in the 3D bed. They are included for terminal and spread exchange rather than applying ordinary volume flux spaces to an exact surface source. The equal-pressure constraints use fixed physical wall intervals rather than one multiplier per vessel mesh element.
+
+Despite the relatively small intact-flow change, equal-pressure flow after the gap varies from 47.1% to 110.1%. This is the clearest mesh sensitivity in the study. The finite-resistance exchange models consistently predict much less remaining tumor delivery for this gap.
 
 [Conservative flux and pressure formulations](figures/conservative_flux.pdf)
 
 ## Exchange assumptions and false connections
 
 Each source-width or conductivity comparison uses its own intact reference. Changing terminal source radius also changes overlap with the tumor when the source becomes wider than the tumor. The false connection joins the daughter vessels one quarter of the way beyond the bifurcation. For that experiment the healthy outlet conductance is half the tumor-outlet conductance, so a false connection can redistribute blood between branches with different loads.
+
+Increasing wall conductivity from one tenth to ten times its default value raises remaining Y tumor flow after a gap from 0.007% to 13.7%. More exchange provides a stronger route through the blood bed, but does not restore the missing lumen. With the cylindrical pressure correction, increasing spread width from 1.5 to eight vessel radii changes remaining flow only from 0.70% to 0.62%.
+
+For terminal exchange, increasing source radius from 4 to 6 mm reduces intact tumor-assigned flow from 3.506 to 1.670 mL min⁻¹. The wider source exceeds the 4.5 mm tumor radius and assigns more blood outside the target. A false connection as wide as a daughter vessel raises tumor flow by 1.3% in the direct vessel model but lowers it by 2.3% with wall exchange, which also adds exchange along the false vessel.
 
 [Terminal source radius](figures/terminal_source_radius.pdf) · [Wall conductivity](figures/wall_conductivity.pdf) · [Spread radius](figures/spread_radius.pdf) · [Extra connection](figures/extra_connection.pdf)
 

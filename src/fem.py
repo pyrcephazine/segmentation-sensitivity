@@ -134,6 +134,7 @@ def vessel_mesh(toy, resolution, defect):
 def normal_vectors(tangents):
     """Construct two perpendicular directions for each vessel cell."""
     guide = np.tile([0.0, 0.0, 1.0], (len(tangents), 1))
+    guide[np.abs(tangents[:, 2]) > 0.9] = [1.0, 0.0, 0.0]
     first = np.cross(tangents, guide)
     first /= np.linalg.norm(first, axis=1)[:, None]
     return first, np.cross(tangents, first)

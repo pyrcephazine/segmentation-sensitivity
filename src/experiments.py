@@ -131,6 +131,13 @@ def load_rows(path):
                 for row in csv.DictReader(file)]
 
 
+def result_value(rows, experiment, toy, model, field, **selection):
+    """Read one scientifically specified comparison from the results."""
+    return next(r[field] for r in rows if r["experiment"] == experiment and r["toy"] == toy
+                and r["model"] == model and all(r[k] == v if isinstance(v, str) else abs(r[k] - v) < 1e-7
+                                               for k, v in selection.items()))
+
+
 def report(rows, figures, elapsed):
     """Write the results and links to every figure."""
     intact = [r for r in rows if r["experiment"] == "intact"]
@@ -141,6 +148,16 @@ def report(rows, figures, elapsed):
                        and abs(r["position_percent"] - 50) < 1e-6)
     contact_mesh = [r["remaining_percent"] for r in rows if r["experiment"] == "tissue_mesh"
                     and r["toy"] == "y" and r["model"] == "contact" and r["defect"] == "gap"]
+    hp = result_value(rows, "radius", "y", "poiseuille", "remaining_percent", branch=1, radius_factor=0.5)
+    darcy = result_value(rows, "radius", "y", "darcy", "remaining_percent", branch=1, radius_factor=0.5)
+    wall_low = result_value(rows, "wall_strength", "y", "lateral", "remaining_percent", wall_factor=0.1, defect="gap")
+    wall_high = result_value(rows, "wall_strength", "y", "lateral", "remaining_percent", wall_factor=10, defect="gap")
+    spread_low = result_value(rows, "spread_width", "y", "spread", "remaining_percent", spread_factor=1.5, defect="gap")
+    spread_high = result_value(rows, "spread_width", "y", "spread", "remaining_percent", spread_factor=8, defect="gap")
+    source_four = result_value(rows, "terminal_support", "y", "terminal", "tumor_flow", terminal_radius_mm=4, defect="none")
+    source_six = result_value(rows, "terminal_support", "y", "terminal", "tumor_flow", terminal_radius_mm=6, defect="none")
+    false_vessel = result_value(rows, "extra", "y", "poiseuille", "remaining_percent", radius_factor=1) - 100
+    false_wall = 100 - result_value(rows, "extra", "y", "lateral", "remaining_percent", radius_factor=1)
     lines = ["# Tumor flow sensitivity in a straight vessel and a Y-shaped vessel", "",
              f"Computed **{len(rows):,} cases** using DOLFINx 0.10.0 and networks_fenicsx. "
              "These are illustrative toy problems with a prescribed tumor region, not fitted animal data.", "",
@@ -229,8 +246,8 @@ def report(rows, figures, elapsed):
               "missing interval using an estimated radius. It restores the corresponding exchange "
               "terms as well as axial flow; the multiplier and line-source models retain their own "
               "exchange laws on the restored interval.", "",
-              "For a concrete comparison, halving radius in the Y tumor branch leaves 46.1% "
-              "of intact tumor flow under Poiseuille resistance and 81.0% under fixed lumen permeability. "
+              f"For a concrete comparison, halving radius in the Y tumor branch leaves {hp:.1f}% "
+              f"of intact tumor flow under Poiseuille resistance and {darcy:.1f}% under fixed lumen permeability. "
               "Both laws were matched on the intact vessel, so this difference isolates radius dependence.", "",
               "[Radius errors, straight vessel](figures/radius_change_line.pdf) · "
               "[Radius errors, Y-shaped vessel](figures/radius_change_y.pdf)", "",
@@ -269,15 +286,15 @@ def report(rows, figures, elapsed):
               "outlet conductance is half the tumor-outlet conductance, so a false connection "
               "can redistribute blood between branches with different loads.", "",
               "Increasing wall conductivity from one tenth to ten times its default value raises "
-              "remaining Y tumor flow after a gap from 0.007% to 13.7%. More exchange provides "
+              f"remaining Y tumor flow after a gap from {wall_low:.3f}% to {wall_high:.1f}%. More exchange provides "
               "a stronger route through the blood bed, but does not restore the missing lumen. "
               "With the cylindrical pressure correction, increasing spread width from 1.5 to eight "
-              "vessel radii changes remaining flow only from 0.70% to 0.62%.", "",
+              f"vessel radii changes remaining flow only from {spread_low:.2f}% to {spread_high:.2f}%.", "",
               "For terminal exchange, increasing source radius from 4 to 6 mm reduces intact "
-              "tumor-assigned flow from 3.506 to 1.670 mL min⁻¹. The wider source exceeds the "
+              f"tumor-assigned flow from {source_four:.3f} to {source_six:.3f} mL min⁻¹. The wider source exceeds the "
               "4.5 mm tumor radius and assigns more blood outside the target. A false connection "
-              "as wide as a daughter vessel raises tumor flow by 1.3% in the direct vessel model "
-              "but lowers it by 2.3% with wall exchange, which also adds exchange along the false vessel.", "",
+              f"as wide as a daughter vessel raises tumor flow by {false_vessel:.1f}% in the direct vessel model "
+              f"but lowers it by {false_wall:.1f}% with wall exchange, which also adds exchange along the false vessel.", "",
               "[Terminal source radius](figures/terminal_source_radius.pdf) · "
               "[Wall conductivity](figures/wall_conductivity.pdf) · "
               "[Spread radius](figures/spread_radius.pdf) · "
@@ -299,9 +316,7 @@ def report(rows, figures, elapsed):
 def update_review(rows):
     """Add the scientific findings and links to the model review."""
     def value(experiment, toy, model, field, **selection):
-        return next(r[field] for r in rows if r["experiment"] == experiment and r["toy"] == toy
-                    and r["model"] == model and all(r[k] == v if isinstance(v, str) else abs(r[k] - v) < 1e-7
-                                                   for k, v in selection.items()))
+        return result_value(rows, experiment, toy, model, field, **selection)
 
     wall = value("gap_position", "y", "lateral", "remaining_percent", branch=1, position_percent=50)
     spread = value("gap_position", "y", "spread", "remaining_percent", branch=1, position_percent=50)
@@ -313,6 +328,10 @@ def update_review(rows):
     darcy = value("radius", "y", "darcy", "remaining_percent", branch=1, radius_factor=0.5)
     coarse = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=6, defect="none")
     fine = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=20, defect="none")
+    wall_low = value("wall_strength", "y", "lateral", "remaining_percent", wall_factor=0.1, defect="gap")
+    wall_high = value("wall_strength", "y", "lateral", "remaining_percent", wall_factor=10, defect="gap")
+    source_four = value("terminal_support", "y", "terminal", "tumor_flow", terminal_radius_mm=4, defect="none")
+    source_six = value("terminal_support", "y", "terminal", "tumor_flow", terminal_radius_mm=6, defect="none")
     section = f"""## 4. Numerical results
 
 The models were run on a 24 mm straight vessel and a Y-shaped vessel with an 11 mm parent and two 13.9 mm daughters. A sphere of radius 4.5 mm around the straight vessel tip or the upper daughter tip defines tumor. Blood enters at 80 mmHg and drains toward 10 mmHg. There is no independent tissue source: arterial exchange supplies the unresolved blood bed. The outer box has zero normal flow. [Geometry](../results/figures/toy_geometry.pdf). The [complete numerical study](../results/sensitivity_results.md) includes all figures and parameters.
@@ -339,7 +358,7 @@ A bridge restored a 2 mm missing interval, and its radius was varied from half t
 
 Tissue spacing was varied from 5 to 1.5 mm, and vessel resolution was varied separately while physical gap boundaries and source widths stayed fixed. Intact Y tumor flow under wall exchange changed from **{coarse:.3f} to {fine:.3f} mL min⁻¹**. In contrast, the equal-pressure model's remaining flow after the tumor-branch gap ranged from **{min(contact_mesh):.1f}% to {max(contact_mesh):.1f}%**. Its apparent gap tolerance is therefore strongly dependent on discretization. Equal-pressure constraints used fixed 4 mm wall intervals, separated across a gap; substantial mesh sensitivity remained. The conservative volume formulation used shared face fluxes for terminal and spread exchange.
 
-Terminal source radius, wall conductivity, and spread radius were also varied. Increasing wall conductivity from one tenth to ten times default raised remaining tumor flow after the gap from **0.007% to 13.7%**. Increasing terminal source radius from 4 to 6 mm lowered intact tumor-assigned flow from **3.506 to 1.670 mL min⁻¹**, as the source extended beyond the 4.5 mm tumor region. These change different assumptions: how readily blood exchanges, how pressure is averaged, and where blood is assigned. A false connection between daughters with unequal outlet loads also redistributed tumor flow; in exchange models it additionally introduced exchange along the false vessel.
+Terminal source radius, wall conductivity, and spread radius were also varied. Increasing wall conductivity from one tenth to ten times default raised remaining tumor flow after the gap from **{wall_low:.3f}% to {wall_high:.1f}%**. Increasing terminal source radius from 4 to 6 mm lowered intact tumor-assigned flow from **{source_four:.3f} to {source_six:.3f} mL min⁻¹**, as the source extended beyond the 4.5 mm tumor region. These change different assumptions: how readily blood exchanges, how pressure is averaged, and where blood is assigned. A false connection between daughters with unequal outlet loads also redistributed tumor flow; in exchange models it additionally introduced exchange along the false vessel.
 
 [Tissue resolution](../results/figures/tissue_resolution.pdf) · [Vessel resolution](../results/figures/vessel_resolution.pdf) · [Conservative flux formulation](../results/figures/conservative_flux.pdf) · [Source radius](../results/figures/terminal_source_radius.pdf) · [Wall conductivity](../results/figures/wall_conductivity.pdf) · [Spread radius](../results/figures/spread_radius.pdf) · [False connection](../results/figures/extra_connection.pdf)
 
