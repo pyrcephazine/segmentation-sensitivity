@@ -188,6 +188,11 @@ def report(rows, figures, elapsed):
                   for toy in ("line", "y")]
         lines.append(f"| {MODEL_LABELS[model]} | {values[0]:.3f} | {values[1]:.3f} |")
     lines += ["", "[Intact tumor flow](figures/intact_tumor_flow.pdf)", "",
+              "The direct vessel model discharges to a prescribed venous pressure; the coupled "
+              "models also include resistance in the unresolved blood bed. The lower intact flow "
+              "in the terminal model therefore reflects an added downstream load. Distributed "
+              "exchange also changes where blood leaves the resolved vessels, so its tumor flow "
+              "need not follow the change in total inlet flow.", "",
               "## Gap location and length", "",
               "Gaps are physical intervals removed before vessel meshing. Position is measured "
               "along the affected anatomical vessel, from its upstream end. All detached vessel pieces "
@@ -255,20 +260,82 @@ def report(rows, figures, elapsed):
               "[Wall conductivity](figures/wall_conductivity.pdf) · "
               "[Spread radius](figures/spread_radius.pdf) · "
               "[Extra connection](figures/extra_connection.pdf)", "",
-              "## Files and reproduction", "",
+              "## Data and model definitions", "",
               "- [All numerical results](data/experiments.csv)",
               "- [Parameters and package versions](data/run.json)",
               "- [Model derivations](../notes/tumor_flow_models_review.md)",
-              "- Run `.venv/bin/python src/experiments.py` from the project directory.",
-              "- Regenerate figures and this report with `.venv/bin/python src/experiments.py --plots-only`.", "",
-              "The single figure manager is `src/figure_manager.py`. All plots are vector PDFs "
-              "and all text and equations use LaTeX rendering. Numerical values are in mL min⁻¹.", "",
+              "- [Implementation and reproduction](../README.md)", "",
+              "All plots are vector PDFs with LaTeX-rendered text and equations. Numerical "
+              "flow values are in mL min⁻¹.", "",
               "Network meshes use [networks_fenicsx](https://github.com/scientificcomputing/networks_fenicsx), "
-              "by Jørgen Schartum Dokken and contributors, revision "
-              "`4d0dd39d6a788185c589c9f4c5017701cd8d27db`. "
+              "by Jørgen Schartum Dokken and contributors. "
               "DOLFINx assembles the vessel and tissue finite elements; SciPy solves the coupled "
               "sparse systems.", ""]
     (OUTPUT / "sensitivity_results.md").write_text("\n".join(lines))
+
+
+def update_review(rows):
+    """Add the scientific findings and links to the model review."""
+    def value(experiment, toy, model, field, **selection):
+        return next(r[field] for r in rows if r["experiment"] == experiment and r["toy"] == toy
+                    and r["model"] == model and all(abs(r[k] - v) < 1e-7 for k, v in selection.items()))
+
+    wall = value("gap_position", "y", "lateral", "remaining_percent", branch=1, position_percent=50)
+    spread = value("gap_position", "y", "spread", "remaining_percent", branch=1, position_percent=50)
+    contact = value("gap_position", "y", "contact", "remaining_percent", branch=1, position_percent=50)
+    healthy = value("gap_position", "y", "terminal", "remaining_percent", branch=2, position_percent=50)
+    hp = value("radius", "y", "poiseuille", "remaining_percent", branch=1, radius_factor=0.5)
+    darcy = value("radius", "y", "darcy", "remaining_percent", branch=1, radius_factor=0.5)
+    coarse = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=6, radius_factor=1)
+    fine = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=20, radius_factor=1)
+    section = f"""## 4. Numerical results
+
+The models were run on a 24 mm straight vessel and a Y-shaped vessel with an 11 mm parent and two 13.9 mm daughters. A sphere of radius 4.5 mm around the straight vessel tip or the upper daughter tip defines tumor. Blood enters at 80 mmHg and drains toward 10 mmHg. There is no independent tissue source: arterial exchange supplies the unresolved blood bed. The outer box has zero normal flow. [Geometry](../results/figures/toy_geometry.pdf). The [complete numerical study](../results/sensitivity_results.md) includes all figures and parameters.
+
+### Gaps and tumor delivery
+
+Gaps were removed at nine positions in each vessel, with lengths from 0.25 to 4 mm. A separate experiment removed the center of the bifurcation. Original outlets were retained; newly cut ends were closed. Each comparison used an intact vessel with the same mesh partitions around the affected interval.
+
+A 1 mm gap halfway along the Y tumor branch left essentially zero tumor delivery under vessel-only or terminal-only flow, **{wall:.2f}%** under wall exchange, **{spread:.2f}%** under spread exchange, and **{contact:.1f}%** under equal mean pressures. Thus nonzero flow after a gap can come from the surrounding blood bed rather than a restored lumen. Cutting the healthy branch instead increased terminal-model tumor delivery by **{healthy - 100:.1f}%**: vessels outside the target can matter through competition for inflow.
+
+[Gap position and tumor flow](../results/figures/gap_position_y.pdf) · [Gap length](../results/figures/gap_length_y.pdf) · [Spatial map](../results/figures/gap_effect_map.pdf) · [Bifurcation gap](../results/figures/bifurcation_gap.pdf)
+
+### Radius errors and repair
+
+Radius changes were applied to a 3 mm interval. Halving the radius halfway along the Y tumor branch left **{hp:.1f}%** of the original tumor flow under Poiseuille resistance, compared with **{darcy:.1f}%** when lumen permeability was held fixed. This isolates the different radius dependence; both laws were matched on the intact vessel.
+
+A bridge restored a 2 mm missing interval, and its radius was varied from half to one and a half times the original radius. Using the original radius recovered the matched intact solution; narrower bridges restored connectivity but could still restrict delivery. Coupled bridges restored their exchange terms as well as axial conductance.
+
+[Radius perturbations](../results/figures/radius_change_y.pdf) · [Bridge radius and recovered flow](../results/figures/bridge_radius_y.pdf) · [Pressure before and after repair](../results/figures/pressure_along_straight_vessel.pdf)
+
+### Mesh and exchange assumptions
+
+Tissue spacing was varied from 5 to 1.5 mm, and vessel resolution was varied separately while physical gap boundaries and source widths stayed fixed. Intact Y tumor flow under wall exchange changed from **{coarse:.3f} to {fine:.3f} mL min⁻¹** over that tissue refinement. The figures show absolute flow alongside the fraction remaining after a gap, so a stable fraction cannot conceal a changing intact prediction. Equal-pressure constraints used fixed 4 mm wall intervals, separated across a gap. The conservative volume formulation used shared face fluxes for terminal and spread exchange.
+
+Terminal source radius, wall conductivity, and spread radius were also varied. These change different assumptions: where blood is assigned, how readily it exchanges, and how pressure is averaged. Wider sources can cross the tumor boundary. A false connection between daughters with unequal outlet loads could redistribute tumor flow even though no vessel was deleted.
+
+[Tissue resolution](../results/figures/tissue_resolution.pdf) · [Vessel resolution](../results/figures/vessel_resolution.pdf) · [Conservative flux formulation](../results/figures/conservative_flux.pdf) · [Source radius](../results/figures/terminal_source_radius.pdf) · [Wall conductivity](../results/figures/wall_conductivity.pdf) · [Spread radius](../results/figures/spread_radius.pdf) · [False connection](../results/figures/extra_connection.pdf)
+
+These results support separate measures of small radius errors, finite connectivity loss, and recovery after repair. They quantify sensitivity of the toy models; they do not establish physiological accuracy or reactive bolus delivery.
+"""
+    path = ROOT / "notes" / "tumor_flow_models_review.md"
+    before, references = path.read_text().split("\n## References", 1)
+    if "\n## 4. Numerical results" in before:
+        before = before.split("\n## 4. Numerical results", 1)[0]
+    destinations = {
+        "resistive-graph-derivation": "radius-errors-and-repair",
+        "lateral-average-derivation": "gaps-and-tumor-delivery",
+        "terminal-exchange-derivation": "gaps-and-tumor-delivery",
+        "perfect-contact-derivation": "gaps-and-tumor-delivery",
+        "distributed-source-derivation": "mesh-and-exchange-assumptions",
+        "lumen-bridge-derivation": "radius-errors-and-repair",
+    }
+    for derivation, destination in destinations.items():
+        marker = f"[Derivation and discretization](#{derivation})."
+        link = f" [Numerical results](#{destination})."
+        if marker + link not in before:
+            before = before.replace(marker, marker + link)
+    path.write_text(before.rstrip() + "\n\n" + section + "\n## References" + references)
 
 
 def main():
@@ -324,6 +391,7 @@ def main():
     import figure_manager
     names = figure_manager.make_figures(rows, OUTPUT / "figures", solutions)
     report(rows, names, perf_counter() - start)
+    update_review(rows)
     print(f"Saved {len(names)} PDF figures and {OUTPUT / 'sensitivity_results.md'}", flush=True)
 
 
