@@ -1,0 +1,12 @@
+name: segmentation-sensitivity
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - fenics-dolfinx=0.10.0
+  - networkx
+  - scipy
+  - matplotlib-base
+  - pip
+  - pip:
+      - networks_fenicsx @ git+https://github.com/scientificcomputing/networks_fenicsx.git@4d0dd39d6a788185c589c9f4c5017701cd8d27db

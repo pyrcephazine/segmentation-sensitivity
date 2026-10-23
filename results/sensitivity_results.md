@@ -1,0 +1,113 @@
+# Tumor flow sensitivity in a straight vessel and a Y-shaped vessel
+
+Computed **1,270 cases** using DOLFINx 0.10.0 and networks_fenicsx. These are illustrative toy problems with a prescribed tumor region, not fitted animal data.
+
+## Setup
+
+Blood enters the upstream end at 80 mmHg. Venous pressure is 10 mmHg. There is no independent tissue source: vessel exchange supplies the blood bed, and distributed venous drainage removes blood. The outside of the box has zero normal flow. Only anatomical outlets exchange through terminal spheres; newly cut vessel ends are closed.
+
+The straight vessel is 24 mm long. The Y has an 11 mm parent vessel and two 13.9 mm daughter vessels. A sphere of radius 4.5 mm around the straight vessel tip or the upper Y tip designates tumor. In the plots, the tumor region is shaded red.
+
+$$J_T=\sum_a w_aQ_a+\int_\Lambda w_T(s)j(s)\,ds,\qquad Q_a=G_a(P_a-\overline p_a).$$
+
+Here the weights are the fraction of each source deposited inside the tumor sphere. The 3D field is unresolved vascular-bed pressure. All percentages compare with the same model and parameters on the intact geometry. Signed exchange is retained.
+
+[Toy geometry](figures/toy_geometry.pdf) · [Model equations](figures/model_equations.pdf)
+
+| Parameter | Value |
+|---|---:|
+| Blood viscosity | 0.0035 Pa s |
+| Straight vessel radius | 0.30 mm |
+| Parent and daughter radii | 0.35 mm and 0.25 mm |
+| Tissue mobility | $2\times10^{-9}$ m² Pa⁻¹ s⁻¹ |
+| Venous drainage coefficient | $5\times10^{-6}$ Pa⁻¹ s⁻¹ |
+| Wall conductivity | $5\times10^{-7}$ m Pa⁻¹ s⁻¹ |
+| Terminal conductance | $2\times10^{-11}$ m³ Pa⁻¹ s⁻¹ |
+| Terminal sphere radius | 2.5 mm |
+| Default tissue spacing | 2.5 mm |
+
+The fixed-permeability lumen model is matched to Poiseuille in the intact vessel; its permeability is held fixed when radius changes. Spread exchange uses a transverse uniform disk and the straight-cylinder pressure correction $\beta_\epsilon^{-1}=\beta^{-1}+[\log(\epsilon/r)-1/4]/(2\pi M)$. The default disk radius is five vessel radii. Equal pressures are enforced with one multiplier per fixed 4 mm wall interval, separated at a gap. The line-source model deposits on the centerline and samples pressure around the circumference; it is a resolution-dependent finite-element approximation of the singular source, not a smooth-source replacement.
+
+## Intact flow
+
+| Model | Straight vessel, mL min⁻¹ | Y-shaped vessel, mL min⁻¹ |
+|---|---:|---:|
+| Vessel flow | 7.328 | 5.909 |
+| Fixed permeability | 7.328 | 5.909 |
+| Wall exchange | 3.761 | 2.553 |
+| Terminal exchange | 4.664 | 3.407 |
+| Equal pressures | 2.578 | 1.529 |
+| Spread exchange | 3.813 | 2.595 |
+| Line source | 3.762 | 2.555 |
+
+[Intact tumor flow](figures/intact_tumor_flow.pdf)
+
+## Gap location and length
+
+Gaps are physical intervals removed before vessel meshing. Position is measured along the affected anatomical vessel, from its upstream end. All detached vessel pieces and original outlets remain in the solve. Location sweeps use a 1 mm gap; length sweeps use a gap centered halfway along the affected vessel.
+
+| Model | Straight vessel, flow remaining | Y parent gap | Y tumor-branch gap | Y healthy-branch gap |
+|---|---:|---:|---:|---:|
+| Vessel flow | 0.0% | 0.0% | 0.0% | 107.4% |
+| Fixed permeability | 0.0% | 0.0% | 0.0% | 107.4% |
+| Wall exchange | 1.9% | 2.4% | 0.7% | 119.0% |
+| Terminal exchange | 0.0% | 0.0% | 0.0% | 122.2% |
+| Equal pressures | 51.7% | 60.3% | 78.8% | 107.7% |
+| Spread exchange | 1.6% | 2.1% | 0.6% | 119.2% |
+| Line source | 1.9% | 2.4% | 0.7% | 119.0% |
+
+[Gap position, straight vessel](figures/gap_position_line.pdf) · [Gap position, Y-shaped vessel](figures/gap_position_y.pdf)
+
+[Gap length, straight vessel](figures/gap_length_line.pdf) · [Gap length, Y-shaped vessel](figures/gap_length_y.pdf)
+
+[Spatial map of gap effects](figures/gap_effect_map.pdf) · [Gap at the bifurcation](figures/bifurcation_gap.pdf)
+
+A bifurcation gap removes the nearby half-gap length from all three incident vessels. It is a different topology change from removing an interval in only one branch.
+
+Tissue-mediated flow after a gap is a different route from an intact arterial lumen. A nonzero tumor source therefore does not establish successful vessel reconnection. A healthy-branch defect can increase tumor delivery by changing competition for inflow.
+
+## Radius errors and explicit repair
+
+Radius errors affect a 3 mm interval. In the coupled models the changed radius also changes wall circumference and pressure-sampling locations. A bridge fills a 2 mm missing interval using an estimated radius. It restores the corresponding exchange terms as well as axial flow; the multiplier and line-source models retain their own exchange laws on the restored interval.
+
+[Radius errors, straight vessel](figures/radius_change_line.pdf) · [Radius errors, Y-shaped vessel](figures/radius_change_y.pdf)
+
+[Bridge radius, straight vessel](figures/bridge_radius_line.pdf) · [Bridge radius, Y-shaped vessel](figures/bridge_radius_y.pdf)
+
+[Vessel pressure before and after repair](figures/pressure_along_straight_vessel.pdf)
+
+## Mesh resolution
+
+Tissue and vessel resolution are varied separately. Physical gap boundaries, radii, tumor location, source widths, and coefficients stay fixed. The charts show both absolute intact flow and the flow remaining after a gap; a stable percentage can otherwise hide a changing intact prediction.
+
+[Tissue resolution](figures/tissue_resolution.pdf) · [Vessel resolution](figures/vessel_resolution.pdf)
+
+| Model | Y intact flow at 5 mm tissue spacing | Y intact flow at 1.5 mm tissue spacing |
+|---|---:|---:|
+| Wall exchange | 2.576 | 2.552 |
+| Terminal exchange | 3.471 | 3.375 |
+| Equal pressures | 1.450 | 1.590 |
+| Spread exchange | 2.627 | 2.576 |
+| Line source | 2.577 | 2.560 |
+
+The conservative volume-exchange calculations use shared face fluxes and cell pressures in the 3D bed. They are included for terminal and spread exchange rather than applying ordinary volume flux spaces to an exact surface source. The equal-pressure constraints use fixed physical wall intervals rather than one multiplier per vessel mesh element.
+
+[Conservative flux and pressure formulations](figures/conservative_flux.pdf)
+
+## Exchange assumptions and false connections
+
+Each source-width or conductivity comparison uses its own intact reference. Changing terminal source radius also changes overlap with the tumor when the source becomes wider than the tumor. The false connection joins the daughter vessels one quarter of the way beyond the bifurcation. For that experiment the healthy outlet conductance is half the tumor-outlet conductance, so a false connection can redistribute blood between branches with different loads.
+
+[Terminal source radius](figures/terminal_source_radius.pdf) · [Wall conductivity](figures/wall_conductivity.pdf) · [Spread radius](figures/spread_radius.pdf) · [Extra connection](figures/extra_connection.pdf)
+
+## Files and reproduction
+
+- [All numerical results](data/experiments.csv)
+- [Parameters and package versions](data/run.json)
+- [Model derivations](../notes/tumor_flow_models_review.md)
+- Run `.venv/bin/python src/experiments.py` from the project directory.
+- Regenerate figures and this report with `.venv/bin/python src/experiments.py --plots-only`.
+
+The single figure manager is `src/figure_manager.py`. All plots are vector PDFs and all text and equations use LaTeX rendering. Numerical values are in mL min⁻¹.
+
+Network meshes use [networks_fenicsx](https://github.com/scientificcomputing/networks_fenicsx), by Jørgen Schartum Dokken and contributors, revision `4d0dd39d6a788185c589c9f4c5017701cd8d27db`. DOLFINx assembles the vessel and tissue finite elements; SciPy solves the coupled sparse systems.

@@ -1,0 +1,31 @@
+{
+  "parameters": {
+    "tissue_resolution": 12,
+    "vessel_resolution": 8,
+    "viscosity": 0.0035,
+    "tissue_mobility": 2e-09,
+    "drainage": 5e-06,
+    "wall_conductivity": 5e-07,
+    "terminal_conductance": 2e-11,
+    "healthy_terminal_factor": 1.0,
+    "terminal_radius": 0.0025,
+    "spread_radius_factor": 5.0,
+    "inlet_pressure": 10665.76,
+    "venous_pressure": 1333.22,
+    "conductance_scale": 2e-11,
+    "angles": 12,
+    "disk_rings": 3,
+    "terminal_samples": 256,
+    "multiplier_spacing": 0.004
+  },
+  "versions": {
+    "fenics-dolfinx": "0.10.0",
+    "networks_fenicsx": "0.3.0.dev0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "matplotlib": "3.11.2"
+  },
+  "cases": 1270,
+  "networks_fenicsx_revision": "4d0dd39d6a788185c589c9f4c5017701cd8d27db",
+  "elapsed_seconds": 47.80015841999557
+}
