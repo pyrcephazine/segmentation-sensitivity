@@ -53,7 +53,7 @@ q_{ij}=g_{ij}(P_i-P_j),\qquad
 g_e=\left(\int_e\frac{ds}{a_v(s)}\right)^{-1}.
 $$
 
-This isolates geometry and connectivity from bulk coupling. Poiseuille gives \(g\propto R^4\); axial Darcy flow with **fixed** \(k_v\) gives \(a_v\propto R^2\). Setting \(k_v=R^2/8\) recovers Poiseuille, so the difference is the permeability assumption. [Derivation and discretization](#resistive-graph-derivation).
+This isolates geometry and connectivity from bulk coupling. Poiseuille gives \(g\propto R^4\); axial Darcy flow with **fixed** \(k_v\) gives \(a_v\propto R^2\). Setting \(k_v=R^2/8\) recovers Poiseuille, so the difference is the permeability assumption. [Derivation and discretization](#resistive-graph-derivation). [Numerical results](#radius-errors-and-repair).
 
 ### L. Finite-radius lateral average
 
@@ -75,7 +75,7 @@ $$
 \qquad -(a_vP')'+q_\ell=0.
 $$
 
-This retains LZ’s averaging while adding blood-flow coefficients, arterial boundaries, and the tumor output. Exchange means filtration for interstitial pressure, or effective unresolved vascular exchange for blood-bed pressure; these require different calibration. Finite-radius averaging avoids evaluating arbitrary bulk pressure on a line, but does not reconnect a broken artery. [Derivation and discretization](#lateral-average-derivation).
+This retains LZ’s averaging while adding blood-flow coefficients, arterial boundaries, and the tumor output. Exchange means filtration for interstitial pressure, or effective unresolved vascular exchange for blood-bed pressure; these require different calibration. Finite-radius averaging avoids evaluating arbitrary bulk pressure on a line, but does not reconnect a broken artery. [Derivation and discretization](#lateral-average-derivation). [Numerical results](#gaps-and-tumor-delivery).
 
 ### T. Terminal-only exchange
 
@@ -86,7 +86,7 @@ $$
 \qquad q(A_k)=G_{a,k}\bigl(P(A_k)-\langle p_t\rangle_k\bigr).
 $$
 
-This is L with \(\gamma=0\): resolved arteries feed unresolved microvasculature at anatomical outlets. A normalized sphere kernel gives a sphere-of-influence model; an anatomical territory can replace the sphere. Following [Amare et al. (2026)](#references), this tests **where exchange occurs**. Vary \(\epsilon\) separately from resistance \(1/G_{a,k}\). [Derivation and discretization](#terminal-exchange-derivation).
+This is L with \(\gamma=0\): resolved arteries feed unresolved microvasculature at anatomical outlets. A normalized sphere kernel gives a sphere-of-influence model; an anatomical territory can replace the sphere. Following [Amare et al. (2026)](#references), this tests **where exchange occurs**. Vary \(\epsilon\) separately from resistance \(1/G_{a,k}\). [Derivation and discretization](#terminal-exchange-derivation). [Numerical results](#gaps-and-tumor-delivery).
 
 ### C. Perfect-contact constraint
 
@@ -100,7 +100,7 @@ $$
 \qquad P-\overline{p_t}=0.
 $$
 
-This is the zero-interface-resistance limit, related to [Kuchta et al. (2021)](#references). It tests whether finite exchange resistance matters and avoids an arbitrarily large penalty coefficient. Perfect contact is an assumption, not automatic physiological improvement. [Derivation and discretization](#perfect-contact-derivation).
+This is the zero-interface-resistance limit, related to [Kuchta et al. (2021)](#references). It tests whether finite exchange resistance matters and avoids an arbitrarily large penalty coefficient. Perfect contact is an assumption, not automatic physiological improvement. [Derivation and discretization](#perfect-contact-derivation). [Numerical results](#gaps-and-tumor-delivery).
 
 ### R. Regularized distributed sources and the singular alternative
 
@@ -126,7 +126,7 @@ q_\ell=\gamma_{\epsilon_\ell}|\partial\Theta|
 \end{aligned}
 $$
 
-Volume exchange reduces sensitivity to mesh alignment but introduces a support scale and a pressure correction/calibration question; see [Koch et al. (2020)](#references). For the distinct singular alternative of [D’Angelo–Quarteroni (2008)](#references), let \(\delta_\Lambda\) be a source concentrated on the centerline and \(\Pi p_t\) a specified finite-radius pressure average. Replace the bulk lateral source by \(q_\ell\delta_\Lambda\), retaining vessel conservation and \(q_\ell=\gamma|\partial\Theta|(P-\Pi p_t)\). Its logarithmic pressure singularity requires weighted spaces or singularity treatment. Neither formulation identifies missing lumen connectivity. [Derivation and discretization](#distributed-source-derivation).
+Volume exchange reduces sensitivity to mesh alignment but introduces a support scale and a pressure correction/calibration question; see [Koch et al. (2020)](#references). For the distinct singular alternative of [D’Angelo–Quarteroni (2008)](#references), let \(\delta_\Lambda\) be a source concentrated on the centerline and \(\Pi p_t\) a specified finite-radius pressure average. Replace the bulk lateral source by \(q_\ell\delta_\Lambda\), retaining vessel conservation and \(q_\ell=\gamma|\partial\Theta|(P-\Pi p_t)\). Its logarithmic pressure singularity requires weighted spaces or singularity treatment. Neither formulation identifies missing lumen connectivity. [Derivation and discretization](#distributed-source-derivation). [Numerical results](#mesh-and-exchange-assumptions).
 
 ### G. Explicit lumen bridge
 
@@ -137,7 +137,7 @@ q_b'=0,\qquad q_b=-a_{v,b}\widehat P',\qquad
 \widehat P(0)=P_-,\quad\widehat P(L_b)=P_+.
 $$
 
-This restores a hypothesized arterial route. Choose candidates using distance, tangent alignment, radius compatibility, and image evidence. Nearby endpoints need not belong to one vessel. A no-leak bridge is an approximation; an oracle repair in L must also restore the removed lateral coupling. [Derivation and discretization](#lumen-bridge-derivation).
+This restores a hypothesized arterial route. Choose candidates using distance, tangent alignment, radius compatibility, and image evidence. Nearby endpoints need not belong to one vessel. A no-leak bridge is an approximation; an oracle repair in L must also restore the removed lateral coupling. [Derivation and discretization](#lumen-bridge-derivation). [Numerical results](#radius-errors-and-repair).
 
 ## 2. Weak forms and discretization
 
@@ -312,6 +312,36 @@ Use zero adjoint values at prescribed-pressure nodes. Geometry-dependent averagi
 1. Implement N, L, T, and explicit bridges first. Use C and R as targeted coupling/numerical comparisons.
 2. Verify a Y-tree with tumor and healthy outlets under both pressure-driven and flow-driven inflow. Compare intact, gapped, oracle-repaired, estimated-radius-repaired, and tissue-mediated cases, then repeat on one intact in-vivo tree.
 3. Produce separate maps of radius sensitivity and finite-gap tumor-flow loss. Evaluate held-out repair error, false connections, conservation, and uncertainty in outlet loads/supply territories. Synthetic intact-tree recovery validates robustness relative to that model, not physiological or dose accuracy.
+
+## 4. Numerical results
+
+The models were run on a 24 mm straight vessel and a Y-shaped vessel with an 11 mm parent and two 13.9 mm daughters. A sphere of radius 4.5 mm around the straight vessel tip or the upper daughter tip defines tumor. Blood enters at 80 mmHg and drains toward 10 mmHg. There is no independent tissue source: arterial exchange supplies the unresolved blood bed. The outer box has zero normal flow. [Geometry](../results/figures/toy_geometry.pdf). The [complete numerical study](../results/sensitivity_results.md) includes all figures and parameters.
+
+### Gaps and tumor delivery
+
+Gaps were removed at nine positions in each vessel, with lengths from 0.25 to 4 mm. A separate experiment removed the center of the bifurcation. Original outlets were retained; newly cut ends were closed. Each comparison used an intact vessel with the same mesh partitions around the affected interval.
+
+A 1 mm gap halfway along the Y tumor branch left essentially zero tumor delivery under vessel-only or terminal-only flow, **0.71%** under wall exchange, **0.63%** under spread exchange, and **77.1%** under equal mean pressures. Thus nonzero flow after a gap can come from the surrounding blood bed rather than a restored lumen. Cutting the healthy branch instead increased terminal-model tumor delivery by **22.2%**: vessels outside the target can matter through competition for inflow.
+
+[Gap position and tumor flow](../results/figures/gap_position_y.pdf) · [Gap length](../results/figures/gap_length_y.pdf) · [Spatial map](../results/figures/gap_effect_map.pdf) · [Bifurcation gap](../results/figures/bifurcation_gap.pdf)
+
+### Radius errors and repair
+
+Radius changes were applied to a 3 mm interval. Halving the radius halfway along the Y tumor branch left **46.1%** of the original tumor flow under Poiseuille resistance, compared with **81.0%** when lumen permeability was held fixed. This isolates the different radius dependence; both laws were matched on the intact vessel.
+
+A bridge restored a 2 mm missing interval, and its radius was varied from half to one and a half times the original radius. Using the original radius recovered the matched intact solution; narrower bridges restored connectivity but could still restrict delivery. Coupled bridges restored their exchange terms as well as axial conductance.
+
+[Radius perturbations](../results/figures/radius_change_y.pdf) · [Bridge radius and recovered flow](../results/figures/bridge_radius_y.pdf) · [Pressure before and after repair](../results/figures/pressure_along_straight_vessel.pdf)
+
+### Mesh and exchange assumptions
+
+Tissue spacing was varied from 5 to 1.5 mm, and vessel resolution was varied separately while physical gap boundaries and source widths stayed fixed. Intact Y tumor flow under wall exchange changed from **2.576 to 2.552 mL min⁻¹** over that tissue refinement. The figures show absolute flow alongside the fraction remaining after a gap, so a stable fraction cannot conceal a changing intact prediction. Equal-pressure constraints used fixed 4 mm wall intervals, separated across a gap. The conservative volume formulation used shared face fluxes for terminal and spread exchange.
+
+Terminal source radius, wall conductivity, and spread radius were also varied. These change different assumptions: where blood is assigned, how readily it exchanges, and how pressure is averaged. Wider sources can cross the tumor boundary. A false connection between daughters with unequal outlet loads could redistribute tumor flow even though no vessel was deleted.
+
+[Tissue resolution](../results/figures/tissue_resolution.pdf) · [Vessel resolution](../results/figures/vessel_resolution.pdf) · [Conservative flux formulation](../results/figures/conservative_flux.pdf) · [Source radius](../results/figures/terminal_source_radius.pdf) · [Wall conductivity](../results/figures/wall_conductivity.pdf) · [Spread radius](../results/figures/spread_radius.pdf) · [False connection](../results/figures/extra_connection.pdf)
+
+These results support separate measures of small radius errors, finite connectivity loss, and recovery after repair. They quantify sensitivity of the toy models; they do not establish physiological accuracy or reactive bolus delivery.
 
 ## References
 

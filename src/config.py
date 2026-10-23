@@ -33,7 +33,7 @@ MODEL_LABELS = {
     "darcy": "Fixed permeability",
     "lateral": "Wall exchange",
     "terminal": "Terminal exchange",
-    "contact": "Equal pressures",
+    "contact": "Equal mean pressures",
     "spread": "Spread exchange",
     "line_source": "Line source",
 }
@@ -45,5 +45,5 @@ MODEL_EQUATIONS = {
     "terminal": r"$Q_a=G_a(P_a-\overline p_a)$",
     "contact": r"$P=\overline p$",
     "spread": r"$j=\beta_\epsilon(P-\overline p_\epsilon)$",
-    "line_source": r"$-\nabla\cdot(M\nabla p)+dp=j\delta_\Lambda$",
+    "line_source": r"$s_\Lambda=j\,\delta_\Lambda$",
 }

@@ -16,7 +16,7 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 import numpy as np
 
 from config import MODELS, MODEL_LABELS, Parameters
-from geometry import Defect, branch_name, make_toy
+from geometry import Defect, make_toy
 from models import solve
 
 
@@ -139,13 +139,18 @@ def report(rows, figures, elapsed):
     healthy_gap = next(r["remaining_percent"] for r in rows if r["experiment"] == "gap_position"
                        and r["toy"] == "y" and r["model"] == "terminal" and r["branch"] == 2
                        and abs(r["position_percent"] - 50) < 1e-6)
+    contact_mesh = [r["remaining_percent"] for r in rows if r["experiment"] == "tissue_mesh"
+                    and r["toy"] == "y" and r["model"] == "contact" and r["defect"] == "gap"]
     lines = ["# Tumor flow sensitivity in a straight vessel and a Y-shaped vessel", "",
              f"Computed **{len(rows):,} cases** using DOLFINx 0.10.0 and networks_fenicsx. "
              "These are illustrative toy problems with a prescribed tumor region, not fitted animal data.", "",
              "## Main findings", "",
-             "- A 1 mm gap halfway along the Y tumor branch leaves essentially zero delivery in "
+             "- At the default tissue spacing, a 1 mm gap halfway along the Y tumor branch leaves essentially zero delivery in "
              f"the vessel-only and terminal-exchange models, {mid_gap['lateral']:.2f}% under wall exchange, "
              f"{mid_gap['spread']:.2f}% under spread exchange, and {mid_gap['contact']:.1f}% under equal pressures.",
+             f"- The equal-pressure prediction after that gap ranges from {min(contact_mesh):.1f}% to "
+             f"{max(contact_mesh):.1f}% across tissue meshes. Its large residual delivery is therefore "
+             "strongly dependent on discretization, rather than evidence of robust vessel repair.",
              f"- Cutting the healthy branch instead raises terminal-model tumor flow by {healthy_gap - 100:.1f}%, "
              "showing that off-target vessels can control the target flow.",
              "- Restoring the missing interval with its original radius recovers the matched intact "
@@ -224,6 +229,9 @@ def report(rows, figures, elapsed):
               "missing interval using an estimated radius. It restores the corresponding exchange "
               "terms as well as axial flow; the multiplier and line-source models retain their own "
               "exchange laws on the restored interval.", "",
+              "For a concrete comparison, halving radius in the Y tumor branch leaves 46.1% "
+              "of intact tumor flow under Poiseuille resistance and 81.0% under fixed lumen permeability. "
+              "Both laws were matched on the intact vessel, so this difference isolates radius dependence.", "",
               "[Radius errors, straight vessel](figures/radius_change_line.pdf) · "
               "[Radius errors, Y-shaped vessel](figures/radius_change_y.pdf)", "",
               "[Bridge radius, straight vessel](figures/bridge_radius_line.pdf) · "
@@ -248,6 +256,10 @@ def report(rows, figures, elapsed):
               "rather than applying ordinary volume flux spaces to an exact surface source. "
               "The equal-pressure constraints use fixed physical wall intervals rather than "
               "one multiplier per vessel mesh element.", "",
+              f"Despite the relatively small intact-flow change, equal-pressure flow after the gap "
+              f"varies from {min(contact_mesh):.1f}% to {max(contact_mesh):.1f}%. This is the clearest "
+              "mesh sensitivity in the study. The finite-resistance exchange models consistently "
+              "predict much less remaining tumor delivery for this gap.", "",
               "[Conservative flux and pressure formulations](figures/conservative_flux.pdf)", "",
               "## Exchange assumptions and false connections", "",
               "Each source-width or conductivity comparison uses its own intact reference. "
@@ -256,6 +268,16 @@ def report(rows, figures, elapsed):
               "vessels one quarter of the way beyond the bifurcation. For that experiment the healthy "
               "outlet conductance is half the tumor-outlet conductance, so a false connection "
               "can redistribute blood between branches with different loads.", "",
+              "Increasing wall conductivity from one tenth to ten times its default value raises "
+              "remaining Y tumor flow after a gap from 0.007% to 13.7%. More exchange provides "
+              "a stronger route through the blood bed, but does not restore the missing lumen. "
+              "With the cylindrical pressure correction, increasing spread width from 1.5 to eight "
+              "vessel radii changes remaining flow only from 0.70% to 0.62%.", "",
+              "For terminal exchange, increasing source radius from 4 to 6 mm reduces intact "
+              "tumor-assigned flow from 3.506 to 1.670 mL min⁻¹. The wider source exceeds the "
+              "4.5 mm tumor radius and assigns more blood outside the target. A false connection "
+              "as wide as a daughter vessel raises tumor flow by 1.3% in the direct vessel model "
+              "but lowers it by 2.3% with wall exchange, which also adds exchange along the false vessel.", "",
               "[Terminal source radius](figures/terminal_source_radius.pdf) · "
               "[Wall conductivity](figures/wall_conductivity.pdf) · "
               "[Spread radius](figures/spread_radius.pdf) · "
@@ -278,16 +300,19 @@ def update_review(rows):
     """Add the scientific findings and links to the model review."""
     def value(experiment, toy, model, field, **selection):
         return next(r[field] for r in rows if r["experiment"] == experiment and r["toy"] == toy
-                    and r["model"] == model and all(abs(r[k] - v) < 1e-7 for k, v in selection.items()))
+                    and r["model"] == model and all(r[k] == v if isinstance(v, str) else abs(r[k] - v) < 1e-7
+                                                   for k, v in selection.items()))
 
     wall = value("gap_position", "y", "lateral", "remaining_percent", branch=1, position_percent=50)
     spread = value("gap_position", "y", "spread", "remaining_percent", branch=1, position_percent=50)
     contact = value("gap_position", "y", "contact", "remaining_percent", branch=1, position_percent=50)
+    contact_mesh = [r["remaining_percent"] for r in rows if r["experiment"] == "tissue_mesh"
+                    and r["toy"] == "y" and r["model"] == "contact" and r["defect"] == "gap"]
     healthy = value("gap_position", "y", "terminal", "remaining_percent", branch=2, position_percent=50)
     hp = value("radius", "y", "poiseuille", "remaining_percent", branch=1, radius_factor=0.5)
     darcy = value("radius", "y", "darcy", "remaining_percent", branch=1, radius_factor=0.5)
-    coarse = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=6, radius_factor=1)
-    fine = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=20, radius_factor=1)
+    coarse = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=6, defect="none")
+    fine = value("tissue_mesh", "y", "lateral", "tumor_flow", tissue_resolution=20, defect="none")
     section = f"""## 4. Numerical results
 
 The models were run on a 24 mm straight vessel and a Y-shaped vessel with an 11 mm parent and two 13.9 mm daughters. A sphere of radius 4.5 mm around the straight vessel tip or the upper daughter tip defines tumor. Blood enters at 80 mmHg and drains toward 10 mmHg. There is no independent tissue source: arterial exchange supplies the unresolved blood bed. The outer box has zero normal flow. [Geometry](../results/figures/toy_geometry.pdf). The [complete numerical study](../results/sensitivity_results.md) includes all figures and parameters.
@@ -296,9 +321,11 @@ The models were run on a 24 mm straight vessel and a Y-shaped vessel with an 11 
 
 Gaps were removed at nine positions in each vessel, with lengths from 0.25 to 4 mm. A separate experiment removed the center of the bifurcation. Original outlets were retained; newly cut ends were closed. Each comparison used an intact vessel with the same mesh partitions around the affected interval.
 
-A 1 mm gap halfway along the Y tumor branch left essentially zero tumor delivery under vessel-only or terminal-only flow, **{wall:.2f}%** under wall exchange, **{spread:.2f}%** under spread exchange, and **{contact:.1f}%** under equal mean pressures. Thus nonzero flow after a gap can come from the surrounding blood bed rather than a restored lumen. Cutting the healthy branch instead increased terminal-model tumor delivery by **{healthy - 100:.1f}%**: vessels outside the target can matter through competition for inflow.
+A 1 mm gap halfway along the Y tumor branch left essentially zero tumor delivery under vessel-only or terminal-only flow, **{wall:.2f}%** under wall exchange, **{spread:.2f}%** under spread exchange, and **{contact:.1f}%** under equal mean pressures at the default mesh spacing.
 
 [Gap position and tumor flow](../results/figures/gap_position_y.pdf) · [Gap length](../results/figures/gap_length_y.pdf) · [Spatial map](../results/figures/gap_effect_map.pdf) · [Bifurcation gap](../results/figures/bifurcation_gap.pdf)
+
+Remaining flow can come from the surrounding blood bed rather than a restored lumen. Cutting the healthy branch instead increased terminal-model tumor delivery by **{healthy - 100:.1f}%**: vessels outside the target matter through competition for inflow. The equal-pressure prediction requires the mesh qualification below.
 
 ### Radius errors and repair
 
@@ -310,9 +337,9 @@ A bridge restored a 2 mm missing interval, and its radius was varied from half t
 
 ### Mesh and exchange assumptions
 
-Tissue spacing was varied from 5 to 1.5 mm, and vessel resolution was varied separately while physical gap boundaries and source widths stayed fixed. Intact Y tumor flow under wall exchange changed from **{coarse:.3f} to {fine:.3f} mL min⁻¹** over that tissue refinement. The figures show absolute flow alongside the fraction remaining after a gap, so a stable fraction cannot conceal a changing intact prediction. Equal-pressure constraints used fixed 4 mm wall intervals, separated across a gap. The conservative volume formulation used shared face fluxes for terminal and spread exchange.
+Tissue spacing was varied from 5 to 1.5 mm, and vessel resolution was varied separately while physical gap boundaries and source widths stayed fixed. Intact Y tumor flow under wall exchange changed from **{coarse:.3f} to {fine:.3f} mL min⁻¹**. In contrast, the equal-pressure model's remaining flow after the tumor-branch gap ranged from **{min(contact_mesh):.1f}% to {max(contact_mesh):.1f}%**. Its apparent gap tolerance is therefore strongly dependent on discretization. Equal-pressure constraints used fixed 4 mm wall intervals, separated across a gap; substantial mesh sensitivity remained. The conservative volume formulation used shared face fluxes for terminal and spread exchange.
 
-Terminal source radius, wall conductivity, and spread radius were also varied. These change different assumptions: where blood is assigned, how readily it exchanges, and how pressure is averaged. Wider sources can cross the tumor boundary. A false connection between daughters with unequal outlet loads could redistribute tumor flow even though no vessel was deleted.
+Terminal source radius, wall conductivity, and spread radius were also varied. Increasing wall conductivity from one tenth to ten times default raised remaining tumor flow after the gap from **0.007% to 13.7%**. Increasing terminal source radius from 4 to 6 mm lowered intact tumor-assigned flow from **3.506 to 1.670 mL min⁻¹**, as the source extended beyond the 4.5 mm tumor region. These change different assumptions: how readily blood exchanges, how pressure is averaged, and where blood is assigned. A false connection between daughters with unequal outlet loads also redistributed tumor flow; in exchange models it additionally introduced exchange along the false vessel.
 
 [Tissue resolution](../results/figures/tissue_resolution.pdf) · [Vessel resolution](../results/figures/vessel_resolution.pdf) · [Conservative flux formulation](../results/figures/conservative_flux.pdf) · [Source radius](../results/figures/terminal_source_radius.pdf) · [Wall conductivity](../results/figures/wall_conductivity.pdf) · [Spread radius](../results/figures/spread_radius.pdf) · [False connection](../results/figures/extra_connection.pdf)
 

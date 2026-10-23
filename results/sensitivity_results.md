@@ -2,6 +2,12 @@
 
 Computed **1,270 cases** using DOLFINx 0.10.0 and networks_fenicsx. These are illustrative toy problems with a prescribed tumor region, not fitted animal data.
 
+## Main findings
+
+- A 1 mm gap halfway along the Y tumor branch leaves essentially zero delivery in the vessel-only and terminal-exchange models, 0.71% under wall exchange, 0.63% under spread exchange, and 77.1% under equal pressures.
+- Cutting the healthy branch instead raises terminal-model tumor flow by 22.2%, showing that off-target vessels can control the target flow.
+- Restoring the missing interval with its original radius recovers the matched intact solve. The radius sweeps show how quickly this changes when the bridge is too narrow.
+
 ## Setup
 
 Blood enters the upstream end at 80 mmHg. Venous pressure is 10 mmHg. There is no independent tissue source: vessel exchange supplies the blood bed, and distributed venous drainage removes blood. The outside of the box has zero normal flow. Only anatomical outlets exchange through terminal spheres; newly cut vessel ends are closed.
@@ -10,7 +16,7 @@ The straight vessel is 24 mm long. The Y has an 11 mm parent vessel and two 13.9
 
 $$J_T=\sum_a w_aQ_a+\int_\Lambda w_T(s)j(s)\,ds,\qquad Q_a=G_a(P_a-\overline p_a).$$
 
-Here the weights are the fraction of each source deposited inside the tumor sphere. The 3D field is unresolved vascular-bed pressure. All percentages compare with the same model and parameters on the intact geometry. Signed exchange is retained.
+Here the weights are the fraction of each source deposited inside the tumor sphere. The 3D field is unresolved vascular-bed pressure. All percentages compare with the same model and parameters on the intact geometry, retaining the same vessel partitions around the defect so that splitting a vessel does not masquerade as damage. Signed exchange is retained.
 
 [Toy geometry](figures/toy_geometry.pdf) · [Model equations](figures/model_equations.pdf)
 
@@ -42,6 +48,8 @@ The fixed-permeability lumen model is matched to Poiseuille in the intact vessel
 
 [Intact tumor flow](figures/intact_tumor_flow.pdf)
 
+The direct vessel model discharges to a prescribed venous pressure; the coupled models also include resistance in the unresolved blood bed. The lower intact flow in the terminal model therefore reflects an added downstream load. Distributed exchange also changes where blood leaves the resolved vessels, so its tumor flow need not follow the change in total inlet flow.
+
 ## Gap location and length
 
 Gaps are physical intervals removed before vessel meshing. Position is measured along the affected anatomical vessel, from its upstream end. All detached vessel pieces and original outlets remain in the solve. Location sweeps use a 1 mm gap; length sweeps use a gap centered halfway along the affected vessel.
@@ -52,7 +60,7 @@ Gaps are physical intervals removed before vessel meshing. Position is measured 
 | Fixed permeability | 0.0% | 0.0% | 0.0% | 107.4% |
 | Wall exchange | 1.9% | 2.4% | 0.7% | 119.0% |
 | Terminal exchange | 0.0% | 0.0% | 0.0% | 122.2% |
-| Equal pressures | 51.7% | 60.3% | 78.8% | 107.7% |
+| Equal pressures | 53.0% | 60.3% | 77.1% | 107.7% |
 | Spread exchange | 1.6% | 2.1% | 0.6% | 119.2% |
 | Line source | 1.9% | 2.4% | 0.7% | 119.0% |
 
@@ -100,14 +108,13 @@ Each source-width or conductivity comparison uses its own intact reference. Chan
 
 [Terminal source radius](figures/terminal_source_radius.pdf) · [Wall conductivity](figures/wall_conductivity.pdf) · [Spread radius](figures/spread_radius.pdf) · [Extra connection](figures/extra_connection.pdf)
 
-## Files and reproduction
+## Data and model definitions
 
 - [All numerical results](data/experiments.csv)
 - [Parameters and package versions](data/run.json)
 - [Model derivations](../notes/tumor_flow_models_review.md)
-- Run `.venv/bin/python src/experiments.py` from the project directory.
-- Regenerate figures and this report with `.venv/bin/python src/experiments.py --plots-only`.
+- [Implementation and reproduction](../README.md)
 
-The single figure manager is `src/figure_manager.py`. All plots are vector PDFs and all text and equations use LaTeX rendering. Numerical values are in mL min⁻¹.
+All plots are vector PDFs with LaTeX-rendered text and equations. Numerical flow values are in mL min⁻¹.
 
-Network meshes use [networks_fenicsx](https://github.com/scientificcomputing/networks_fenicsx), by Jørgen Schartum Dokken and contributors, revision `4d0dd39d6a788185c589c9f4c5017701cd8d27db`. DOLFINx assembles the vessel and tissue finite elements; SciPy solves the coupled sparse systems.
+Network meshes use [networks_fenicsx](https://github.com/scientificcomputing/networks_fenicsx), by Jørgen Schartum Dokken and contributors. DOLFINx assembles the vessel and tissue finite elements; SciPy solves the coupled sparse systems.

@@ -108,7 +108,9 @@ def model_panels(rows, directory, experiment, toy, xkey, xlabel, name, ylabel="T
                         "o-", color=branch_colors[branch], label=label)
         ax.axhline(100, color="#888888", ls=":", lw=1)
         ax.set(title=MODEL_LABELS[model], xlabel=xlabel, ylabel=ylabel)
-        ax.set_ylim(bottom=min(0, ax.get_ylim()[0]))
+    values = [r["remaining_percent"] for r in subset]
+    if values:
+        axes.ravel()[0].set_ylim(min(0, min(values)) - 2, max(105, max(values)) * 1.05)
     legend_ax = axes.ravel()[-1]
     legend_ax.axis("off")
     handles, labels = axes.ravel()[0].get_legend_handles_labels()
@@ -140,7 +142,8 @@ def resolution(rows, directory, experiment, name):
         ax.invert_xaxis()
     axes[0].set(ylabel=r"Tumor flow ($\mathrm{mL}\,\mathrm{min}^{-1}$)", title="Intact Y-shaped vessel")
     axes[1].set(ylabel="Tumor flow remaining (percent)", title="One millimeter gap in the tumor branch")
-    axes[0].legend(frameon=False)
+    handles, labels = axes[0].get_legend_handles_labels()
+    figure.legend(handles, labels, loc="outside lower center", ncol=3, frameon=False)
     return save(figure, directory, name)
 
 
